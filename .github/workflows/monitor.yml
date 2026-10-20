@@ -1,0 +1,41 @@
+name: CCTV Yanbian News Monitor
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 运行监控脚本
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          python monitor.py
+
+      - name: 自动保活（防止60天闲置被禁用）
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add last_run.txt sent_ids.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: auto update monitor run status $(date '+%Y-%m-%d %H:%M')"
+            git push
+          else
+            echo "No changes to commit"
+          fi
